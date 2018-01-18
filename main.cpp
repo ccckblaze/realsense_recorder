@@ -15,6 +15,9 @@ std::string windowName = "Recording";
 bool record(rs::device* dev, std::string basePath, float timeLimit = 24 * 60 * 60){
     bool shouldContinue = true; 
 
+    // Create Folder
+    boost::filesystem::create_directory(basePath + "/records");
+
     // Get file name
     char fileName[255] = {0};
     char strTime[20] = {0};
@@ -93,9 +96,9 @@ bool record(rs::device* dev, std::string basePath, float timeLimit = 24 * 60 * 6
 
 int main(int argc, char* argv[])
 {
-    // Create records folder
+    // Get records folder
     std::string currentBinPath = boost::filesystem::path(argv[0]).remove_filename().string();
-    boost::filesystem::create_directory(currentBinPath);
+    std::cout << "Record at: " << currentBinPath << std::endl;
 
     // Create realsense device
     rs::context ctx;
