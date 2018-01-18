@@ -10,19 +10,21 @@
 using namespace std;
 using namespace cv;
 
-int main(int argc, char* argv[])
-{
-    // Create folder
-    std::string currentBinPath = boost::filesystem::path(argv[0]).remove_filename().string();
-    boost::filesystem::create_directory(currentBinPath);
+std::string windowName = "Recording";
+
+bool record(rs::device* dev, std::string basePath, float timeLimit = 24 * 60 * 60){
+    bool shouldContinue = true; 
 
     // Get file name
     char fileName[255] = {0};
     char strTime[20] = {0};
     time_t now = time(NULL);
     strftime(strTime, 20, "%Y-%m-%d_%H:%M:%S", localtime(&now));
-    sprintf(fileName, "%s/records/%s.avi", currentBinPath.c_str(), strTime); 
+    sprintf(fileName, "%s/records/%s.avi", basePath.c_str(), strTime); 
     std::cout << "Start recording: " << fileName << std::endl;
+
+    // Get clock
+    clock_t beginClock = clock();
 
     // VideoWriter
     VideoWriter outputVideo;
@@ -34,50 +36,21 @@ int main(int argc, char* argv[])
     if (!outputVideo.isOpened())
     {
         std::cout  << "Could not open the output video for write: " << std::endl;
-        return -1;
+        return false;
     }
-
-    // Create realsense device
-    rs::context ctx;
-    rs::device * dev = ctx.get_device(0);
-
-    // Configure Infrared stream to run at VGA resolution at 30 frames per second
-    dev->enable_stream(rs::stream::infrared, 640, 480, rs::format::y8, 30);
-
-    // We must also configure depth stream in order to IR stream run properly
-    dev->enable_stream(rs::stream::depth, 640, 480, rs::format::z16, 30);
-
-    // Open color stream
-    dev->enable_stream(rs::stream::color, 640, 480, rs::format::bgr8, 30);
-
-    // Disable IR emitter(for outdoor use)
-    //if (dev->supports_option(rs::option::r200_emitter_enabled))
-    //{
-    //    int value = !dev->get_option(rs::option::r200_emitter_enabled);
-    //    std::cout << "Setting emitter to " << value << std::endl;
-    //    dev->set_option(rs::option::r200_emitter_enabled, value);
-    //}
-
-    // Enable auto exposure(for outdoor usage)
-    if (dev->supports_option(rs::option::r200_lr_auto_exposure_enabled))
-    {
-        int value = !dev->get_option(rs::option::r200_lr_auto_exposure_enabled);
-        std::cout << "Setting auto exposure to " << value << std::endl;
-        dev->set_option(rs::option::r200_lr_auto_exposure_enabled, value);
-    }
-
-    // Start streaming
-    dev->start();
-
-    // Camera warmup - Dropped frames to allow stabilization
-    for(int i = 0; i < 40; i++)
-        dev->wait_for_frames();
 
     // Loop
     double beginTimestamp = dev->get_frame_timestamp(rs::stream::color);
     double lastFrameTimestamp = beginTimestamp; 
     Mat lastFrame;
-    while(waitKey(1) != 27){ // ESC
+    // Check time over
+    while(((float)(clock() - beginClock) / CLOCKS_PER_SEC) < timeLimit){
+        // Check ESC
+        if(waitKey(1) == 27){
+            shouldContinue = false;
+            std::cout << "ESCed" << std::endl;
+            break;
+        } 
         // Wait for new frames
         dev->wait_for_frames();
 
@@ -101,9 +74,7 @@ int main(int argc, char* argv[])
             outputVideo.write(lastFrame);
         }
 
-        // Display the image in GUI
-        namedWindow("Display Image", WINDOW_AUTOSIZE );
-        imshow("Display Image", ir);
+        imshow(windowName, ir);
 
         // regular time
 	lastFrame = color.clone();
@@ -112,6 +83,65 @@ int main(int argc, char* argv[])
   
     // Close VideoWriter
     outputVideo.release();
+
+    if(!shouldContinue){
+        return false;
+    }
+
+    return true;
+}
+
+int main(int argc, char* argv[])
+{
+    // Create records folder
+    std::string currentBinPath = boost::filesystem::path(argv[0]).remove_filename().string();
+    boost::filesystem::create_directory(currentBinPath);
+
+    // Create realsense device
+    rs::context ctx;
+    rs::device * dev = ctx.get_device(0);
+
+    // Configure Infrared stream to run at VGA resolution at 30 frames per second
+    dev->enable_stream(rs::stream::infrared, 640, 480, rs::format::y8, 30);
+
+    // We must also configure depth stream in order to IR stream run properly
+    dev->enable_stream(rs::stream::depth, 640, 480, rs::format::z16, 30);
+
+    // Open color stream
+    dev->enable_stream(rs::stream::color, 640, 480, rs::format::bgr8, 30);
+
+    // Disable IR emitter(for outdoor use)
+    if (dev->supports_option(rs::option::r200_emitter_enabled))
+    {
+        int value = !dev->get_option(rs::option::r200_emitter_enabled);
+        std::cout << "Setting emitter to " << value << std::endl;
+        dev->set_option(rs::option::r200_emitter_enabled, value);
+    }
+
+    // Enable auto exposure(for outdoor usage)
+    if (dev->supports_option(rs::option::r200_lr_auto_exposure_enabled))
+    {
+        int value = !dev->get_option(rs::option::r200_lr_auto_exposure_enabled);
+        std::cout << "Setting auto exposure to " << value << std::endl;
+        dev->set_option(rs::option::r200_lr_auto_exposure_enabled, value);
+    }
+    // Display the image in GUI
+    namedWindow(windowName, WINDOW_AUTOSIZE );
+ 
+    // Start streaming
+    dev->start();
+
+    // Camera warmup - Dropped frames to allow stabilization
+    for(int i = 0; i < 40; i++)
+        dev->wait_for_frames();
+
+    // Loop
+    while(true){ // ESC
+        // record to a file per limit time
+        if(!record(dev, currentBinPath/*, 60*/)){
+            break;
+        }
+    }
 
     // Stop streaming
     dev->stop();
