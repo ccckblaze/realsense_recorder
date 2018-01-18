@@ -5,19 +5,23 @@
 #include <opencv2/opencv.hpp>
 
 #include <boost/filesystem.hpp>
+#include <string>
 
 using namespace std;
 using namespace cv;
 
-int main()
+int main(int argc, char* argv[])
 {
     // Create folder
-    boost::filesystem::create_directory("records");
+    std::string currentBinPath = boost::filesystem::path(argv[0]).remove_filename().string();
+    boost::filesystem::create_directory(currentBinPath);
 
     // Get file name
     char fileName[255] = {0};
+    char strTime[20] = {0};
     time_t now = time(NULL);
-    strftime(fileName, 255, "records/%Y-%m-%d_%H:%M:%S.avi", localtime(&now));
+    strftime(strTime, 20, "%Y-%m-%d_%H:%M:%S", localtime(&now));
+    sprintf(fileName, "%s/records/%s.avi", currentBinPath.c_str(), strTime); 
     std::cout << "Start recording: " << fileName << std::endl;
 
     // VideoWriter
@@ -70,9 +74,10 @@ int main()
         dev->wait_for_frames();
 
     // Loop
-    double lastFrameTimestamp = dev->get_frame_timestamp(rs::stream::color);
+    double beginTimestamp = dev->get_frame_timestamp(rs::stream::color);
+    double lastFrameTimestamp = beginTimestamp; 
     Mat lastFrame;
-    while(waitKey(1) != 27){
+    while(waitKey(1) != 27){ // ESC
         // Wait for new frames
         dev->wait_for_frames();
 
@@ -89,7 +94,8 @@ int main()
 
         // Creating OpenCV matrix from IR image
         Mat color(Size(640, 480), CV_8UC3, (void*)dev->get_frame_data(rs::stream::color), Mat::AUTO_STEP);
-        std::cout << frameSkips << std::endl;
+        //std::cout << frameSkips << std::endl;
+
         // Write frame
         for(int i = 0; frameSkips > 0 && i < frameSkips; i++){
             outputVideo.write(lastFrame);
