@@ -12,7 +12,7 @@ using namespace cv;
 
 std::string windowName = "Recording";
 
-bool record(rs::device* dev, std::string basePath, float timeLimit = 24 * 60 * 60){
+bool record(rs::device* dev, std::string basePath, float timeLimit = 1 * 60 * 60){
     bool shouldContinue = true; 
 
     // Create Folder
@@ -70,10 +70,12 @@ bool record(rs::device* dev, std::string basePath, float timeLimit = 24 * 60 * 6
 
         // Creating OpenCV matrix from IR image
         Mat color(Size(640, 480), CV_8UC3, (void*)dev->get_frame_data(rs::stream::color), Mat::AUTO_STEP);
-        //std::cout << frameSkips << std::endl;
+        // Debug Info
+        std::cout << "cft: " << currentFrameTimestamp << "; lft: " << lastFrameTimestamp 
+                  << "; skip: " << frameSkips << std::endl;
 
         // Write frame
-        for(int i = 0; frameSkips > 0 && i < frameSkips; i++){
+        for(int i = 0; i < frameSkips; i++){
             outputVideo.write(lastFrame);
         }
 
