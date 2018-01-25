@@ -14,4 +14,4 @@ use_cxx11()
 set(EXE realsense_recorder)
 
 add_executable(${EXE} main.cpp)
-target_link_libraries(${EXE} realsense boost_system boost_filesystem opencv_imgproc opencv_highgui opencv_core opencv_contrib)
+target_link_libraries(${EXE} realsense boost_system boost_filesystem opencv_imgproc opencv_highgui opencv_core opencv_contrib avformat avcodec avutil swscale)
